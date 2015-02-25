@@ -2,14 +2,14 @@
 
 require "find"
 require "webrick"
-require "rack"
 require "open3"
 require "optparse"
 
 class Static
   def self.main
     serve_dir, command = parse_opts
-    Server.new.serve(serve_dir, command)
+    serve_dir = File.expand_path(serve_dir)
+    Server.new(serve_dir, command).serve
   end
 
   def self.parse_opts
@@ -43,45 +43,78 @@ class Static
 end
 
 class Server
-  def serve(serve_dir, command)
-    rack_app = Rack::File.new(serve_dir)
-    if command
-      rack_app = ReloaderRackApp.new(command, rack_app)
+  def initialize(serve_dir, command)
+    @mutex = Mutex.new
+    @serve_dir = serve_dir
+    @command = command
+    @rebuilder = Rebuilder.new(@command) if @command
+  end
+
+  def serve
+    server = WEBrick::HTTPServer.new(:Port => 8000)
+
+    server.mount_proc '/' do |req, res|
+      relative_path = req.path.sub(/^\//, '')
+      local_abs_path = File.absolute_path(relative_path, @serve_dir)
+
+      if File.directory?(local_abs_path)
+        dir_response(relative_path, local_abs_path, res)
+      else
+        file_response(local_abs_path, res)
+      end
     end
-    Rack::Server.new(:app => rack_app,
-                     :Port => 3000,
-                     :server => 'webrick').start
+
+    trap 'INT' do server.shutdown end
+    server.start
+  end
+
+  def dir_response(rel_path, local_abs_path, res)
+    res.content_type = "text/html"
+    res.body = (
+      "<p><h1>Listing for /#{rel_path}</h1></p>" +
+      Dir.entries(local_abs_path).select do |child|
+        child != "."
+      end.map do |child|
+        full_child_path_on_server = File.join("/", rel_path, child)
+        %{<a href="#{full_child_path_on_server}">#{child}</a><br>}
+      end.join("\n")
+    )
+  end
+
+  def file_response(local_abs_path, res)
+    rebuild_if_needed
+    res.body = File.read(local_abs_path)
+    basename = File.extname(local_abs_path).sub(/^\./, '')
+  end
+
+  def rebuild_if_needed
+    # Webrick is multi-threaded; guard against concurrent builds
+    @mutex.synchronize do
+      if @rebuilder
+        @rebuilder.rebuild_if_needed
+      end
+    end
+  end
+
+  def error_404
   end
 end
 
-class ReloaderRackApp
-  def initialize(command, next_app)
-    @next_app = next_app
+class Rebuilder
+  def initialize(command)
     @command = command
-    @mutex = Mutex.new
     @last_disk_state = nil
   end
 
-  def call(env)
-    env = normalize_path(env)
-
-    # Webrick is multi-threaded; guard against concurrent builds
-    @mutex.synchronize do
-      if disk_state != @last_disk_state
-        stdout_and_stderr, success = rebuild
-        return failure(stdout_and_stderr) unless success
-        @last_disk_state = disk_state
+  def rebuild_if_needed
+    if disk_state != @last_disk_state
+      stdout_and_stderr, success = rebuild
+      if !success
+        return ["Failed to build! Command output:\n\n" + stdout_and_stderr,
+                false]
       end
-      @next_app.call(env)
-    end
-  end
-
-  def normalize_path(env)
-    if env.fetch("REQUEST_PATH") == "/"
-      env.merge("REQUEST_PATH" => "/index.html",
-                "PATH_INFO" => "/index.html")
-    else
-      env
+      @last_disk_state = disk_state
+      [stdout_and_stderr, success]
     end
   end
 
@@ -92,11 +125,6 @@ class ReloaderRackApp
     print stdout_and_stderr
     puts " end build".rjust(80, "=")
     [stdout_and_stderr, status.success?]
-  end
-
-  def failure(stdout_and_stderr)
-    failure_report = "Failed to build! Log output:\n\n" + stdout_and_stderr
-    return [500, {}, StringIO.new(failure_report)]
   end
 
   def disk_state
