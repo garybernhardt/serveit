@@ -57,7 +57,9 @@ class Server
       relative_path = req.path.sub(/^\//, '')
       local_abs_path = File.absolute_path(relative_path, @serve_dir)
 
-      if File.directory?(local_abs_path)
+      if relative_path == "favicon.ico"
+        favicon_response(res)
+      elsif File.directory?(local_abs_path)
         dir_response(relative_path, local_abs_path, res)
       else
         file_response(local_abs_path, res)
@@ -66,6 +68,10 @@ class Server
 
     trap 'INT' do server.shutdown end
     server.start
+  end
+
+  def favicon_response(res)
+    res.status = 404
   end
 
   def dir_response(rel_path, local_abs_path, res)
