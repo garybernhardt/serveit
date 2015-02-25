@@ -119,6 +119,9 @@ class Rebuilder
         return ["Failed to build! Command output:\n\n" + stdout_and_stderr,
                 false]
       end
+
+      # Get a new post-build disk state so we don't pick up changes made during
+      # the build.
       @last_disk_state = disk_state
       [stdout_and_stderr, success]
     end
