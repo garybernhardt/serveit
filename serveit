@@ -1,0 +1,115 @@
+#!/usr/bin/env ruby
+
+require "find"
+require "webrick"
+require "rack"
+require "open3"
+require "optparse"
+
+class Static
+  def self.main
+    serve_dir, command = parse_opts
+    Server.new.serve(serve_dir, command)
+  end
+
+  def self.parse_opts
+    options = {:serve_dir => "."}
+    parser = OptionParser.new do |opts|
+      opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
+      opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
+        options[:serve_dir] = dir
+      end
+    end
+
+    begin
+      parser.parse!(ARGV)
+    rescue OptionParser::InvalidOption => e
+      $stderr.puts e
+      $stderr.puts parser
+      exit 1
+    end
+
+    if ARGV.count == 0
+      command = nil
+    elsif ARGV.count == 1
+      command = ARGV.fetch(0)
+    else
+      $stderr.write parser.to_s
+      exit 1
+    end
+
+    [options.fetch(:serve_dir), command]
+  end
+end
+
+class Server
+  def serve(serve_dir, command)
+    rack_app = Rack::File.new(serve_dir)
+    if command
+      rack_app = ReloaderRackApp.new(command, rack_app)
+    end
+    Rack::Server.new(:app => rack_app,
+                     :Port => 3000,
+                     :server => 'webrick').start
+  end
+end
+
+class ReloaderRackApp
+  def initialize(command, next_app)
+    @next_app = next_app
+    @command = command
+    @mutex = Mutex.new
+    @last_disk_state = nil
+  end
+
+  def call(env)
+    env = normalize_path(env)
+
+    # Webrick is multi-threaded; guard against concurrent builds
+    @mutex.synchronize do
+      if disk_state != @last_disk_state
+        stdout_and_stderr, success = rebuild
+        return failure(stdout_and_stderr) unless success
+        @last_disk_state = disk_state
+      end
+      @next_app.call(env)
+    end
+  end
+
+  def normalize_path(env)
+    if env.fetch("REQUEST_PATH") == "/"
+      env.merge("REQUEST_PATH" => "/index.html",
+                "PATH_INFO" => "/index.html")
+    else
+      env
+    end
+  end
+
+  def rebuild
+    puts "Running command: #{@command}"
+    puts " begin build".rjust(80, "=")
+    stdout_and_stderr, status = Open3.capture2e(@command)
+    print stdout_and_stderr
+    puts " end build".rjust(80, "=")
+    [stdout_and_stderr, status.success?]
+  end
+
+  def failure(stdout_and_stderr)
+    failure_report = "Failed to build! Log output:\n\n" + stdout_and_stderr
+    return [500, {}, StringIO.new(failure_report)]
+  end
+
+  def disk_state
+    Dir.glob("./**/*").map do |path|
+      File.absolute_path(path)
+    end.reject do |path|
+      path.start_with?("build/")
+    end.map do |path|
+      [path, File.stat(path).mtime.to_s]
+    end.sort
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  Static.main
+end
