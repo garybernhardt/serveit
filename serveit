@@ -139,8 +139,6 @@ class Rebuilder
   def disk_state
     Dir.glob("./**/*").map do |path|
       File.absolute_path(path)
-    end.reject do |path|
-      path.start_with?("build/")
     end.map do |path|
       [path, File.stat(path).mtime.to_s]
     end.sort
