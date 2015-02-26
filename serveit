@@ -77,7 +77,7 @@ class Server
   def dir_response(rel_path, local_abs_path, res)
     res.content_type = "text/html"
     res.body = (
-      "<p><h1>Listing for /#{rel_path}</h1></p>\n" +
+      "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
       Dir.entries(local_abs_path).select do |child|
         child != "."
       end.map do |child|
