@@ -1,10 +1,12 @@
 # ServeIt
 
 ServeIt is a tool for previewing content in a browser, automatically rebuilding it when things change.
-It replaces tools that do asynchronous rebuilds when files change.
-If the build triggers during or after a request, those tools will serve inconsistent or stale content.
-ServeIt runs builds only when a request is made, blocking the request until the build finishes. 
-The served content won't be inconsistent or stale.
+It replaces tools like [guard](https://github.com/guard/guard) that do asynchronous rebuilds when files change.
+
+ServeIt is strictly synchronous: it performs builds when requests come in, blocking the request until the build completes.
+This means that the served content will never be stale or inconsistent, as it can be with asynchronous tools.
+
+You can use ServeIt to preview a markdown file as you write it, to serve your blog as you write a post, to review a book as you edit it, etc.
 
 ## Usage
 
@@ -22,8 +24,9 @@ Whenever I refresh the page, ServeIt runs `multimarkdown` to regenerate the HTML
 $ serveit 'multimarkdown README.md > README.html'
 ```
 
-When I go to `localhost:8000`, the `multimarkdown` command will be run (it's always run on the first request).
-I get a simple directory listing:
+(You should try this yourself; it will make ServeIt's purpose and behavior much more clear than simply reading.)
+
+When I go to `localhost:8000`, the `multimarkdown` command will be run, then I get a simple directory listing:
 
 > <p><h3>Listing for /</h3></p>
 > <a href="/..">..</a><br>
@@ -36,9 +39,7 @@ I get a simple directory listing:
 If I click on `README.html`, I see this README file rendered as HTML.
 When I load or reload any page, ServeIt will check for changes to any files in its current working directory.
 If there was a change, *no matter what the change is*, then the command will be re-run, regenerating the HTML file.
-
-When a build is triggered by a file change, ServeIt blocks the HTTP request until the build completes.
-This ensures that the rendered content is always up to date when any page is loaded.
+The HTTP request only completes once the build is finished.
 
 ## Theory of Operation
 
@@ -59,7 +60,7 @@ ServeIt doesn't know about any details of the build.
 It will never be extended to know details of the build.
 *ServeIt does not do builds. It serves files and runs commands when files change!*
 
-## Is it fast enough?
+## Is It Fast Enough?
 
 ServeIt's file change tracking is naive: it simply crawls the current directory recursively, building a list of paths and their modification times.
 Computers are fast now; this is not a performance problem.
@@ -79,10 +80,11 @@ This is useful when your build output goes into a specific directory.
 To build and serve my book, I run this command in the root of its repo:
 
 ```
-serveit -d build rake
+serveit -s build rake
 ```
 
 This runs `rake` in the repo root, where there's a Rakefile.
-The Rakefile incrementally builds the book into the `build` directory, which `ServeIt` is serving.
+When I reload, the Rakefile incrementally builds the book into the `build` directory.
+ServeIt is serving the `build` directory because of the `-s` argument, so I see my rendered changes upon reload.
 
 That's all.
