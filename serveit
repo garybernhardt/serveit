@@ -40,110 +40,110 @@ class ServeIt
 
     [options.fetch(:serve_dir), command]
   end
-end
 
-class Server
-  def initialize(serve_dir, command)
-    @mutex = Mutex.new
-    @serve_dir = serve_dir
-    @command = command
-    @rebuilder = Rebuilder.new(@command) if @command
-  end
+  class Server
+    def initialize(serve_dir, command)
+      @mutex = Mutex.new
+      @serve_dir = serve_dir
+      @command = command
+      @rebuilder = Rebuilder.new(@command) if @command
+    end
 
-  def serve
-    server = WEBrick::HTTPServer.new(:Port => 8000)
+    def serve
+      server = WEBrick::HTTPServer.new(:Port => 8000)
 
-    server.mount_proc '/' do |req, res|
-      relative_path = req.path.sub(/^\//, '')
-      local_abs_path = File.absolute_path(relative_path, @serve_dir)
+      server.mount_proc '/' do |req, res|
+        relative_path = req.path.sub(/^\//, '')
+        local_abs_path = File.absolute_path(relative_path, @serve_dir)
 
-      if relative_path == "favicon.ico"
-        favicon_response(res)
-      elsif File.directory?(local_abs_path)
-        rebuild_if_needed
-        dir_response(relative_path, local_abs_path, res)
-      else
-        # We're building a file
-        rebuild_if_needed
-        file_response(local_abs_path, res)
+        if relative_path == "favicon.ico"
+          favicon_response(res)
+        elsif File.directory?(local_abs_path)
+          rebuild_if_needed
+          dir_response(relative_path, local_abs_path, res)
+        else
+          # We're building a file
+          rebuild_if_needed
+          file_response(local_abs_path, res)
+        end
+      end
+
+      trap 'INT' do server.shutdown end
+      server.start
+    end
+
+    def favicon_response(res)
+      res.status = 404
+    end
+
+    def dir_response(rel_path, local_abs_path, res)
+      res.content_type = "text/html"
+      res.body = (
+        "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
+        Dir.entries(local_abs_path).select do |child|
+          child != "."
+        end.map do |child|
+          full_child_path_on_server = File.join("/", rel_path, child)
+          %{<a href="#{full_child_path_on_server}">#{child}</a><br>}
+        end.join("\n")
+      )
+    end
+
+    def file_response(local_abs_path, res)
+      res.body = File.read(local_abs_path)
+      basename = File.extname(local_abs_path).sub(/^\./, '')
+    end
+
+    def rebuild_if_needed
+      # Webrick is multi-threaded; guard against concurrent builds
+      @mutex.synchronize do
+        if @rebuilder
+          @rebuilder.rebuild_if_needed
+        end
       end
     end
 
-    trap 'INT' do server.shutdown end
-    server.start
-  end
-
-  def favicon_response(res)
-    res.status = 404
-  end
-
-  def dir_response(rel_path, local_abs_path, res)
-    res.content_type = "text/html"
-    res.body = (
-      "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
-      Dir.entries(local_abs_path).select do |child|
-        child != "."
-      end.map do |child|
-        full_child_path_on_server = File.join("/", rel_path, child)
-        %{<a href="#{full_child_path_on_server}">#{child}</a><br>}
-      end.join("\n")
-    )
-  end
-
-  def file_response(local_abs_path, res)
-    res.body = File.read(local_abs_path)
-    basename = File.extname(local_abs_path).sub(/^\./, '')
-  end
-
-  def rebuild_if_needed
-    # Webrick is multi-threaded; guard against concurrent builds
-    @mutex.synchronize do
-      if @rebuilder
-        @rebuilder.rebuild_if_needed
-      end
+    def error_404
     end
   end
 
-  def error_404
-  end
-end
-
-class Rebuilder
-  def initialize(command)
-    @command = command
-    @last_disk_state = nil
-  end
-
-  def rebuild_if_needed
-    if disk_state != @last_disk_state
-      stdout_and_stderr, success = rebuild
-      if !success
-        return ["Failed to build! Command output:\n\n" + stdout_and_stderr,
-                false]
-      end
-
-      # Get a new post-build disk state so we don't pick up changes made during
-      # the build.
-      @last_disk_state = disk_state
-      [stdout_and_stderr, success]
+  class Rebuilder
+    def initialize(command)
+      @command = command
+      @last_disk_state = nil
     end
-  end
 
-  def rebuild
-    puts "Running command: #{@command}"
-    puts " begin build".rjust(80, "=")
-    stdout_and_stderr, status = Open3.capture2e(@command)
-    print stdout_and_stderr
-    puts " end build".rjust(80, "=")
-    [stdout_and_stderr, status.success?]
-  end
+    def rebuild_if_needed
+      if disk_state != @last_disk_state
+        stdout_and_stderr, success = rebuild
+        if !success
+          return ["Failed to build! Command output:\n\n" + stdout_and_stderr,
+                  false]
+        end
 
-  def disk_state
-    Dir.glob("./**/*").map do |path|
-      File.absolute_path(path)
-    end.map do |path|
-      [path, File.stat(path).mtime.to_s]
-    end.sort
+        # Get a new post-build disk state so we don't pick up changes made during
+        # the build.
+        @last_disk_state = disk_state
+        [stdout_and_stderr, success]
+      end
+    end
+
+    def rebuild
+      puts "Running command: #{@command}"
+      puts " begin build".rjust(80, "=")
+      stdout_and_stderr, status = Open3.capture2e(@command)
+      print stdout_and_stderr
+      puts " end build".rjust(80, "=")
+      [stdout_and_stderr, status.success?]
+    end
+
+    def disk_state
+      Dir.glob("./**/*").map do |path|
+        File.absolute_path(path)
+      end.map do |path|
+        [path, File.stat(path).mtime.to_s]
+      end.sort
+    end
   end
 end
 
