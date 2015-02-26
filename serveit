@@ -60,8 +60,11 @@ class Server
       if relative_path == "favicon.ico"
         favicon_response(res)
       elsif File.directory?(local_abs_path)
+        rebuild_if_needed
         dir_response(relative_path, local_abs_path, res)
       else
+        # We're building a file
+        rebuild_if_needed
         file_response(local_abs_path, res)
       end
     end
@@ -88,7 +91,6 @@ class Server
   end
 
   def file_response(local_abs_path, res)
-    rebuild_if_needed
     res.body = File.read(local_abs_path)
     basename = File.extname(local_abs_path).sub(/^\./, '')
   end
