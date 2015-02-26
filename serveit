@@ -5,7 +5,7 @@ require "webrick"
 require "open3"
 require "optparse"
 
-class Static
+class ServeIt
   def self.main
     serve_dir, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
@@ -148,5 +148,5 @@ class Rebuilder
 end
 
 if __FILE__ == $PROGRAM_NAME
-  Static.main
+  ServeIt.main
 end
