@@ -50,7 +50,9 @@ class ServeIt
     end
 
     def serve
-      server = WEBrick::HTTPServer.new(:Port => 8000)
+      port = 8000
+      puts "Starting server at http://localhost:#{port}"
+      server = WEBrick::HTTPServer.new(:Port => port)
 
       server.mount_proc '/' do |req, res|
         relative_path = req.path.sub(/^\//, '')
