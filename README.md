@@ -87,4 +87,6 @@ This runs `rake` in the repo root, where there's a Rakefile.
 When I reload, the Rakefile incrementally builds the book into the `build` directory.
 ServeIt is serving the `build` directory because of the `-s` argument, so I see my rendered changes upon reload.
 
-That's all.
+## Practicalities
+
+ServeIt requires Ruby 1.9.3 or later, but has no other dependencies.
