@@ -93,6 +93,14 @@ class ServeIt
 
     def file_response(local_abs_path, res)
       res.body = File.read(local_abs_path)
+      res.content_type = guess_content_type(local_abs_path)
+    end
+
+    def guess_content_type(path)
+      extension = File.extname(path).sub(/^\./, '')
+      WEBrick::HTTPUtils::DefaultMimeTypes.fetch(extension) do
+        "application/octet-stream"
+      end
     end
 
     def rebuild_if_needed
