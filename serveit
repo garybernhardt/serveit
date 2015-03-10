@@ -59,9 +59,9 @@ class ServeIt
         local_abs_path = File.absolute_path(relative_path, @serve_dir)
 
         if relative_path == "favicon.ico"
-          favicon_response(res)
+          respond_to_favicon(res)
         else
-          response_for_path(res, relative_path, local_abs_path)
+          respond_to_path(res, relative_path, local_abs_path)
         end
       end
 
@@ -69,22 +69,22 @@ class ServeIt
       server.start
     end
 
-    def favicon_response(res)
+    def respond_to_favicon(res)
       res.status = 404
     end
 
-    def response_for_path(res, relative_path, local_abs_path)
+    def respond_to_path(res, relative_path, local_abs_path)
       rebuild_if_needed
 
       if File.directory?(local_abs_path)
-        dir_response(res, relative_path, local_abs_path)
+        respond_to_dir(res, relative_path, local_abs_path)
       else
         # We're building a file
-        file_response(res, local_abs_path)
+        respond_to_file(res, local_abs_path)
       end
     end
 
-    def dir_response(res, rel_path, local_abs_path)
+    def respond_to_dir(res, rel_path, local_abs_path)
       res.content_type = "text/html"
       res.body = (
         "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
@@ -97,7 +97,7 @@ class ServeIt
       )
     end
 
-    def file_response(res, local_abs_path)
+    def respond_to_file(res, local_abs_path)
       res.body = File.read(local_abs_path)
       res.content_type = guess_content_type(local_abs_path)
     end
