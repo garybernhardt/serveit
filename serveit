@@ -60,13 +60,8 @@ class ServeIt
 
         if relative_path == "favicon.ico"
           favicon_response(res)
-        elsif File.directory?(local_abs_path)
-          rebuild_if_needed
-          dir_response(relative_path, local_abs_path, res)
         else
-          # We're building a file
-          rebuild_if_needed
-          file_response(local_abs_path, res)
+          response_for_path(res, relative_path, local_abs_path)
         end
       end
 
@@ -76,6 +71,17 @@ class ServeIt
 
     def favicon_response(res)
       res.status = 404
+    end
+
+    def response_for_path(res, relative_path, local_abs_path)
+      rebuild_if_needed
+
+      if File.directory?(local_abs_path)
+        dir_response(relative_path, local_abs_path, res)
+      else
+        # We're building a file
+        file_response(local_abs_path, res)
+      end
     end
 
     def dir_response(rel_path, local_abs_path, res)
