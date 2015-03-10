@@ -74,7 +74,11 @@ class ServeIt
     end
 
     def respond_to_path(res, relative_path, local_abs_path)
-      rebuild_if_needed
+      begin
+        rebuild_if_needed
+      rescue Rebuilder::RebuildFailed => e
+        return respond_to_error(res, e.to_s)
+      end
 
       if File.directory?(local_abs_path)
         respond_to_dir(res, relative_path, local_abs_path)
@@ -82,6 +86,11 @@ class ServeIt
         # We're building a file
         respond_to_file(res, local_abs_path)
       end
+    end
+
+    def respond_to_error(res, message)
+      res.content_type = "text/html"
+      res.body = "<pre>" + message + "</pre>"
     end
 
     def respond_to_dir(res, rel_path, local_abs_path)
@@ -129,8 +138,8 @@ class ServeIt
       if disk_state != @last_disk_state
         stdout_and_stderr, success = rebuild
         if !success
-          return ["Failed to build! Command output:\n\n" + stdout_and_stderr,
-                  false]
+          message = "Failed to build! Command output:\n\n" + stdout_and_stderr
+          raise RebuildFailed.new(message)
         end
 
         # Get a new post-build disk state so we don't pick up changes made during
@@ -156,6 +165,8 @@ class ServeIt
         [path, File.stat(path).mtime.to_s]
       end.sort
     end
+
+    class RebuildFailed < RuntimeError; end
   end
 end
 
