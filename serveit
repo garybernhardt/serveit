@@ -77,14 +77,14 @@ class ServeIt
       rebuild_if_needed
 
       if File.directory?(local_abs_path)
-        dir_response(relative_path, local_abs_path, res)
+        dir_response(res, relative_path, local_abs_path)
       else
         # We're building a file
-        file_response(local_abs_path, res)
+        file_response(res, local_abs_path)
       end
     end
 
-    def dir_response(rel_path, local_abs_path, res)
+    def dir_response(res, rel_path, local_abs_path)
       res.content_type = "text/html"
       res.body = (
         "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
@@ -97,7 +97,7 @@ class ServeIt
       )
     end
 
-    def file_response(local_abs_path, res)
+    def file_response(res, local_abs_path)
       res.body = File.read(local_abs_path)
       res.content_type = guess_content_type(local_abs_path)
     end
