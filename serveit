@@ -7,17 +7,20 @@ require "optparse"
 
 class ServeIt
   def self.main
-    serve_dir, command = parse_opts
+    serve_dir, show_index_files, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
-    Server.new(serve_dir, command).serve
+    Server.new(serve_dir, show_index_files, command).serve
   end
 
   def self.parse_opts
-    options = {:serve_dir => "."}
+    options = {:serve_dir => ".", :show_index_files => false}
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
       opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
         options[:serve_dir] = dir
+      end
+      opts.on_tail("-i", "--[no-]show-index-files", "If present, show index files instead of directory indexes") do |should_show_index|
+        options[:show_index_files] = should_show_index
       end
     end
 
@@ -38,13 +41,16 @@ class ServeIt
       exit 1
     end
 
-    [options.fetch(:serve_dir), command]
+    [options.fetch(:serve_dir), options.fetch(:show_index_files), command]
   end
 
   class Server
-    def initialize(serve_dir, command)
+    INDEX_PATTERN = %r{^index\.(.)+$}
+
+    def initialize(serve_dir, show_index_files, command)
       @mutex = Mutex.new
       @serve_dir = serve_dir
+      @show_index_files = show_index_files
       @command = command
       @rebuilder = Rebuilder.new(@command) if @command
     end
@@ -81,7 +87,9 @@ class ServeIt
       end
 
       if File.directory?(local_abs_path)
-        respond_to_dir(res, relative_path, local_abs_path)
+        @show_index_files ?
+          respond_to_index_file(res, relative_path, local_abs_path) :
+          respond_to_dir(res, relative_path, local_abs_path)
       else
         # We're building a file
         respond_to_file(res, local_abs_path)
@@ -91,6 +99,14 @@ class ServeIt
     def respond_to_error(res, message)
       res.content_type = "text/html"
       res.body = "<pre>" + message + "</pre>"
+    end
+
+    def respond_to_index_file(res, rel_path, local_abs_path)
+      index_file = Dir.entries(local_abs_path).detect { |c| INDEX_PATTERN =~ c }
+
+      return index_file ?
+        respond_to_file(res, File.join(local_abs_path, index_file)) :
+        respond_to_dir(res, rel_path, local_abs_path)
     end
 
     def respond_to_dir(res, rel_path, local_abs_path)
