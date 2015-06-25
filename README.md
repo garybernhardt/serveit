@@ -8,6 +8,20 @@ This means that the served content will never be stale or inconsistent, as it ca
 
 You can use ServeIt to preview a markdown file as you write it, to serve your blog as you write a post, to review a book as you edit it, etc.
 
+## Installation
+
+available via Homebrew
+
+`brew install --HEAD homebrew/head-only/serveit`
+
+Or `brew tap homebrew/head-only` and then `brew install --HEAD serveit`
+
+Or install via URL (which will not receive updates):
+
+```
+brew install --HEAD https://raw.githubusercontent.com/Homebrew/homebrew-head-only/master/serveit.rb
+```
+
 ## Usage
 
 To serve the current directory at `http://localhost:8000` as a purely static site, including a simple directory listing, run:
