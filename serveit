@@ -6,6 +6,7 @@ require "open3"
 require "optparse"
 
 class ServeIt
+  VERSION = [0, 0, 0]
   def self.main
     serve_dir, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
@@ -18,6 +19,10 @@ class ServeIt
       opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
       opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
         options[:serve_dir] = dir
+      end
+      opts.on_tail("--version", "Show version") do |dir|
+        puts ServeIt::VERSION.join('.')
+        exit
       end
     end
 
