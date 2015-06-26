@@ -18,16 +18,17 @@ def ensure_repo_is_clean
 end
 
 def get_version
-  version_string = ARGV.fetch(0).strip
+  filename = ARGV.fetch(0).strip
+  version_string = ARGV.fetch(1).strip
   components = version_string.split(/\./)
-  Version.new(version_string, components)
+  Version.new(filename, version_string, components)
 end
 
-class Version < Struct.new(:string, :components)
+class Version < Struct.new(:filename, :string, :components)
 end
 
 def update_source_version(version)
-  source = File.readlines("selecta").map(&:rstrip)
+  source = File.readlines(version.filename).map(&:rstrip)
   updated_source = source.map do |line|
     if line =~ /^(\s+)VERSION =/
       indentation = $1
@@ -37,7 +38,7 @@ def update_source_version(version)
     end
   end.join("\n") + "\n"
 
-  File.write("selecta", updated_source)
+  File.write(version.filename, updated_source)
 end
 
 def commit(version)
