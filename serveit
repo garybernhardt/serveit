@@ -6,7 +6,7 @@ require "open3"
 require "optparse"
 
 class ServeIt
-  VERSION = [0, 0, 0]
+  VERSION = [0, 0, 1]
   def self.main
     serve_dir, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
