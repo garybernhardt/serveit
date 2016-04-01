@@ -8,17 +8,20 @@ require "optparse"
 class ServeIt
   VERSION = [0, 0, 1]
   def self.main
-    serve_dir, command = parse_opts
+    serve_dir, port, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
-    Server.new(serve_dir, command).serve
+    Server.new(serve_dir, port, command).serve
   end
 
   def self.parse_opts
-    options = {:serve_dir => "."}
+    options = {:serve_dir => ".", :port => 8000}
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
       opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
         options[:serve_dir] = dir
+      end
+      opts.on_tail("-p", "--port PORT", Integer, "TCP port number to listen on") do |port|
+        options[:port] = port
       end
       opts.on_tail("--version", "Show version") do |dir|
         puts ServeIt::VERSION.join('.')
@@ -43,21 +46,21 @@ class ServeIt
       exit 1
     end
 
-    [options.fetch(:serve_dir), command]
+    [options.fetch(:serve_dir), options.fetch(:port), command]
   end
 
   class Server
-    def initialize(serve_dir, command)
+    def initialize(serve_dir, port, command)
       @mutex = Mutex.new
       @serve_dir = serve_dir
+      @port = port
       @command = command
       @rebuilder = Rebuilder.new(@command) if @command
     end
 
     def serve
-      port = 8000
-      puts "Starting server at http://localhost:#{port}"
-      server = WEBrick::HTTPServer.new(:Port => port)
+      puts "Starting server at http://localhost:#{@port}"
+      server = WEBrick::HTTPServer.new(:Port => @port)
 
       server.mount_proc '/' do |req, res|
         relative_path = req.path.sub(/^\//, '')
