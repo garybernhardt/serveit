@@ -162,9 +162,10 @@ class ServeIt
     def rebuild
       puts "Running command: #{@command}"
       puts " begin build".rjust(80, "=")
+      start_time = Time.now
       stdout_and_stderr, status = Open3.capture2e(@command)
       print stdout_and_stderr
-      puts " end build".rjust(80, "=")
+      puts (" built in %.03fs" % (Time.now - start_time)).rjust(80, "=")
       [stdout_and_stderr, status.success?]
     end
 
@@ -183,7 +184,7 @@ class ServeIt
       paths.map do |path|
         [path, File.stat(path).mtime.to_s]
       end.sort.tap do
-        puts (" scanned in %.03f" % (Time.now - start_time)).rjust(80, "=")
+        puts (" scanned in %.03fs" % (Time.now - start_time)).rjust(80, "=")
       end
     end
 
