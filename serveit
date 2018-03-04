@@ -95,8 +95,18 @@ class ServeIt
         return respond_to_error(res, e.to_s)
       end
 
+      if local_abs_path.end_with?("__dir__")
+        return respond_to_dir(res,
+                              relative_path.chomp("/").chomp("__dir__"),
+                              local_abs_path.chomp("/").chomp("__dir__"))
+      end
+
       if File.directory?(local_abs_path)
-        respond_to_dir(res, relative_path, local_abs_path)
+        if File.file?(local_abs_path + "/index.html")
+          respond_to_file(res, local_abs_path + "/index.html")
+        else
+          respond_to_dir(res, relative_path, local_abs_path)
+        end
       else
         # We're building a file
         respond_to_file(res, local_abs_path)
