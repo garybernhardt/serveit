@@ -6,15 +6,18 @@ require "open3"
 require "optparse"
 
 class ServeIt
-  VERSION = [0, 0, 1]
+  VERSION = [0, 0, 2]
+
   def self.main
-    serve_dir, port, command = parse_opts
+    serve_dir, port, ignored_paths, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
-    Server.new(serve_dir, port, command).serve
+    Server.new(serve_dir, port, ignored_paths, command).serve
   end
 
   def self.parse_opts
-    options = {:serve_dir => ".", :port => 8000}
+    options = {:serve_dir => ".",
+               :ignored_paths =>  [],
+               :port => 8000}
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
       opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
@@ -22,6 +25,9 @@ class ServeIt
       end
       opts.on_tail("-p", "--port PORT", Integer, "TCP port number to listen on") do |port|
         options[:port] = port
+     end
+      opts.on_tail("-i", "--ignore PATH", "Ignore changes to file or directory") do |path|
+        options[:ignored_paths] << path
       end
       opts.on_tail("--version", "Show version") do |dir|
         puts ServeIt::VERSION.join('.')
@@ -46,16 +52,16 @@ class ServeIt
       exit 1
     end
 
-    [options.fetch(:serve_dir), options.fetch(:port), command]
+    [options.fetch(:serve_dir), options.fetch(:port), options.fetch(:ignored_paths), command]
   end
 
   class Server
-    def initialize(serve_dir, port, command)
+    def initialize(serve_dir, port, ignored_paths, command)
       @mutex = Mutex.new
       @serve_dir = serve_dir
       @port = port
       @command = command
-      @rebuilder = Rebuilder.new(@command) if @command
+      @rebuilder = Rebuilder.new(@command, ignored_paths) if @command
     end
 
     def serve
@@ -137,8 +143,9 @@ class ServeIt
   end
 
   class Rebuilder
-    def initialize(command)
+    def initialize(command, ignored_paths)
       @command = command
+      @ignored_paths = ignored_paths
       @last_disk_state = nil
     end
 
@@ -160,18 +167,36 @@ class ServeIt
     def rebuild
       puts "Running command: #{@command}"
       puts " begin build".rjust(80, "=")
+      start_time = Time.now
       stdout_and_stderr, status = Open3.capture2e(@command)
       print stdout_and_stderr
-      puts " end build".rjust(80, "=")
+      puts (" built in %.03fs" % (Time.now - start_time)).rjust(80, "=")
       [stdout_and_stderr, status.success?]
     end
 
     def disk_state
-      Dir.glob("./**/*").map do |path|
-        File.absolute_path(path)
-      end.map do |path|
+      start_time = Time.now
+      paths = []
+
+      Find.find(".") do |path|
+        if ignore_path?(path)
+          Find.prune
+        else
+          paths << path
+        end
+      end
+
+      paths.map do |path|
         [path, File.stat(path).mtime.to_s]
-      end.sort
+      end.sort.tap do
+        puts (" scanned in %.03fs" % (Time.now - start_time)).rjust(80, "=")
+      end
+    end
+
+    def ignore_path?(path)
+      @ignored_paths.any? do |ignored_path|
+        File.absolute_path(path) == File.absolute_path(ignored_path)
+      end
     end
 
     class RebuildFailed < RuntimeError; end
