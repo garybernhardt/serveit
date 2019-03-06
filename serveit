@@ -177,6 +177,8 @@ class ServeIt
       Find.find(".") do |path|
         if ignore_path?(path)
           Find.prune
+        elsif lock_file?(path)
+          next
         else
           paths << path
         end
@@ -187,6 +189,11 @@ class ServeIt
       end.sort.tap do
         puts (" scanned in %.03fs" % (Time.now - start_time)).rjust(80, "=")
       end
+    end
+
+    def lock_file?(path)
+      File.symlink?(path) \
+                   and not File.exist?(File.join(File.dirname(path), File.readlink(path)))
     end
 
     def ignore_path?(path)
