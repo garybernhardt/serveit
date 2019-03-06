@@ -181,6 +181,8 @@ class ServeIt
       Find.find(".") do |path|
         if ignore_path?(path)
           Find.prune
+        elsif missing_symlink_target?(path)
+          next
         else
           paths << path
         end
@@ -191,6 +193,14 @@ class ServeIt
       end.sort.tap do
         puts (" scanned in %.03fs" % (Time.now - start_time)).rjust(80, "=")
       end
+    end
+
+    def missing_symlink_target?(path)
+      is_symlink = File.symlink?(path)
+      return false unless is_symlink
+
+      full_symlink_path = File.join(File.dirname(path), File.readlink(path))
+      return (not File.exist?(full_symlink_path))
     end
 
     def ignore_path?(path)
