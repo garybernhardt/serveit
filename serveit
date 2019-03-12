@@ -9,19 +9,23 @@ class ServeIt
   VERSION = [0, 0, 2]
 
   def self.main
-    serve_dir, ignored_paths, command = parse_opts
+    serve_dir, port, ignored_paths, command = parse_opts
     serve_dir = File.expand_path(serve_dir)
-    Server.new(serve_dir, ignored_paths, command).serve
+    Server.new(serve_dir, port, ignored_paths, command).serve
   end
 
   def self.parse_opts
     options = {:serve_dir => ".",
-               :ignored_paths =>  []}
+               :ignored_paths =>  [],
+               :port => 8000}
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: #{$PROGRAM_NAME} [options] command"
       opts.on_tail("-s", "--serve-dir DIR", "Root directory for server") do |dir|
         options[:serve_dir] = dir
       end
+      opts.on_tail("-p", "--port PORT", Integer, "TCP port number to listen on") do |port|
+        options[:port] = port
+     end
       opts.on_tail("-i", "--ignore PATH", "Ignore changes to file or directory") do |path|
         options[:ignored_paths] << path
       end
@@ -48,21 +52,21 @@ class ServeIt
       exit 1
     end
 
-    [options.fetch(:serve_dir), options.fetch(:ignored_paths), command]
+    [options.fetch(:serve_dir), options.fetch(:port), options.fetch(:ignored_paths), command]
   end
 
   class Server
-    def initialize(serve_dir, ignored_paths, command)
+    def initialize(serve_dir, port, ignored_paths, command)
       @mutex = Mutex.new
       @serve_dir = serve_dir
+      @port = port
       @command = command
       @rebuilder = Rebuilder.new(@command, ignored_paths) if @command
     end
 
     def serve
-      port = 8000
-      puts "Starting server at http://localhost:#{port}"
-      server = WEBrick::HTTPServer.new(:Port => port)
+      puts "Starting server at http://localhost:#{@port}"
+      server = WEBrick::HTTPServer.new(:Port => @port)
 
       server.mount_proc '/' do |req, res|
         relative_path = req.path.sub(/^\//, '')
