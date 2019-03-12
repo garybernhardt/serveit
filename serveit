@@ -6,7 +6,7 @@ require "open3"
 require "optparse"
 
 class ServeIt
-  VERSION = [0, 0, 2]
+  VERSION = [0, 0, 3]
 
   def self.main
     serve_dir, port, ignored_paths, command = parse_opts
