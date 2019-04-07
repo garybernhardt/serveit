@@ -110,12 +110,14 @@ class ServeIt
     def respond_to_dir(res, rel_path, local_abs_path)
       res.content_type = "text/html"
       res.body = (
+        "<meta charset=\"utf-8\"/>" +
         "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
         Dir.entries(local_abs_path).select do |child|
           child != "."
         end.sort.map do |child|
-          full_child_path_on_server = File.join("/", rel_path, child)
-          %{<a href="#{full_child_path_on_server}">#{child}</a><br>}
+          utf8_child = child.encode('utf-8')
+          full_child_path_on_server = File.join("/", rel_path, utf8_child)
+          %{<a href="#{full_child_path_on_server}">#{utf8_child}</a><br>}
         end.join("\n")
       )
     end

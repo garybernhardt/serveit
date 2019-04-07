@@ -90,6 +90,8 @@ ServeIt is serving the `build` directory because of the `-s` argument, so I see 
 You can ignore files or directories with `-i YOUR_IGNORED_DIR`.
 Specify it multiple times to ignore multiple paths.
 
+You can change the port ServeIt serves on using the `-p` argument.
+
 ## Practicalities
 
 ServeIt requires Ruby 1.9.3 or later, but has no other dependencies.
