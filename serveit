@@ -69,6 +69,7 @@ class ServeIt
       server = WEBrick::HTTPServer.new(:Port => @port)
 
       server.mount_proc '/' do |req, res|
+        res['Access-Control-Allow-Origin'] = '*'
         relative_path = req.path.sub(/^\//, '')
         local_abs_path = File.absolute_path(relative_path, @serve_dir)
 
