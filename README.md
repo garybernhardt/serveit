@@ -92,4 +92,6 @@ Specify it multiple times to ignore multiple paths.
 
 ## Practicalities
 
-ServeIt requires Ruby 1.9.3 or later, but has no other dependencies.
+ServeIt requires Ruby 1.9.3 or later.
+To run with Ruby 3.0.0 or later, you'll need to `gem install webrick`.
+Or, on macOS, you can install ServeIt via `brew install serveit`.
